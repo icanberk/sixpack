@@ -21,20 +21,32 @@ app.config['CSRF_DISABLE'] = cfg.get('csrf_disable', False)
 
 csrf = SeaSurf(app)
 
-js = Bundle('js/vendor/jquery.js', 'js/vendor/d3.js',
-            'js/vendor/bootstrap.js', 'js/experiment.js', 'js/chart.js',
-            'js/sixpack.js', 'js/vendor/underscore-min.js', 'js/vendor/spin.min.js',
+js = Bundle('js/experiment.js', 'js/chart.js',
+            'js/sixpack.js', 'js/vendor/spin.min.js',
             'js/vendor/waypoints.min.js', 'js/vendor/zeroclipboard.min.js',
             output="{0}/sixpack.js".format(cfg.get('asset_path', 'gen')))
 
-css = Bundle('css/vendor/bootstrap.css',
-             'css/vendor/bootstrap-responsive.css', 'css/sixpack.css',
+# 'js/vendor/jquery.js', 'js/vendor/d3.js',
+#             'js/vendor/bootstrap.js'
+
+# 'css/vendor/bootstrap.css',
+#              'css/vendor/bootstrap-responsive.css', 
+
+
+css = Bundle('css/sixpack.css',
              output="{0}/sixpack.css".format(cfg.get('asset_path', 'gen')))
 
 assets = Environment(app)
 assets.register('js_all', js)
 assets.register('css_all', css)
 
+CDN_URLS = {
+    'CDN_BOOTSTRAP_CSS_URL': 'https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css',
+    'CDN_JQUERY_URL': 'https://code.jquery.com/jquery-2.2.4.min.js',
+    'CDN_D3_URL': 'https://cdnjs.cloudflare.com/ajax/libs/d3/4.4.1/d3.min.js',
+    'CDN_BOOTSTRAP_JS_URL': 'https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js',
+    'CDN_UNDERSCORE_URL': 'https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore-min.js'
+}
 
 @app.route('/_status')
 @utils.service_unavailable_on_connection_error
@@ -47,19 +59,28 @@ def status():
 def hello():
     experiments = Experiment.all(redis=db.REDIS)
     experiments = [exp.name for exp in experiments]
-    return render_template('dashboard.html', experiments=experiments, page='home')
+    return render_template('dashboard.html',
+        experiments=experiments,
+        cdn_urls=CDN_URLS,
+        age='home')
 
 @app.route('/archived')
 def archived():
     experiments = Experiment.archived(redis=db.REDIS)
     experiments = [exp.name for exp in experiments]
-    return render_template('dashboard.html', experiments=experiments, page='archived')
+    return render_template('dashboard.html',
+        experiments=experiments,
+        cdn_urls=CDN_URLS,
+        page='archived')
 
 @app.route('/paused')
 def paused():
     experiments = Experiment.paused(redis=db.REDIS)
     experiments = [exp.name for exp in experiments]
-    return render_template('dashboard.html', experiments=experiments, page='paused')
+    return render_template('dashboard.html',
+        experiments=experiments,
+        cdn_urls=CDN_URLS,
+        page='paused')
 
 @app.route('/experiments.json')
 def experiment_list():
@@ -73,7 +94,9 @@ def experiment_list():
 @app.route("/experiments/<experiment_name>/")
 def details(experiment_name):
     experiment = find_or_404(experiment_name)
-    return render_template('details.html', experiment=experiment)
+    return render_template('details.html',
+        cdn_urls=CDN_URLS,
+        experiment=experiment)
 
 
 @app.route("/experiments/<experiment_name>.json")

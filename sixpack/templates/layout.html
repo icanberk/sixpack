@@ -10,6 +10,7 @@
 
     <!-- Le styles -->
     {% assets "css_all" %}
+      <link href="{{ cdn_urls.CDN_BOOTSTRAP_CSS_URL }}" rel="stylesheet">
       <link href="{{ ASSET_URL }}" rel="stylesheet">
     {% endassets %}
 
@@ -44,6 +45,10 @@
     <div id="tooltip"></div>
 
   {% assets "js_all" %}
+      <script type="text/javascript" src="{{ cdn_urls.CDN_JQUERY_URL }}"></script>
+      <script type="text/javascript" src="{{ cdn_urls.CDN_D3_URL }}"></script>
+      <script type="text/javascript" src="{{ cdn_urls.CDN_BOOTSTRAP_JS_URL }}"></script>
+      <script type="text/javascript" src="{{ cdn_urls.CDN_UNDERSCORE_URL }}"></script>
       <script type="text/javascript" src="{{ ASSET_URL }}"></script>
   {% endassets %}
 
