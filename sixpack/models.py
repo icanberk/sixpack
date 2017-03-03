@@ -809,3 +809,116 @@ class Alternative(object):
     def is_valid(alternative_name):
         return (isinstance(alternative_name, basestring) and
                 VALID_EXPERIMENT_ALTERNATIVE_RE.match(alternative_name) is not None)
+
+
+class Config(object):
+
+    def __init__(self, name, value, redis=None):
+        self.name = name
+        self.redis = redis
+        self.value = value
+
+    def __repr__(self):
+        return '<Config: {0})>'.format(self.name)
+
+    def objectify(self, slim=False):
+        objectified = {
+            'name': self.name,
+            'value': period
+        }
+
+        return objectified
+
+    def save(self):
+        pipe = self.redis.pipeline()
+        pipe.watch(self.key())
+        is_new_record = self.is_new_record()
+        try:
+            pipe.multi()
+            if is_new_record:
+                pipe.sadd(_key('e'), self.name)
+                pipe.hset(self.key(), 'value', self.value)
+            pipe.execute()
+        except redis.WatchError:
+            raise ValueError('Config could not be saved')
+
+    def update_value(self, value):
+        if value == '' or value is None:
+            return
+        else:
+            self.redis.hset(self.key(), 'value', value)
+
+    @property
+    def value(self):
+        value = self.redis.hget(self.key(), 'value')
+        if value:
+            return value.decode("utf-8", "replace")
+        else:
+            return None
+
+    def delete(self):
+        pipe = self.redis.pipeline()
+        pipe.srem(_key('c'), self.name)
+        pipe.delete(self.key())
+        pipe.delete(_key(self.name))
+        pipe.delete(_key('c:{0}'.format(self.name)))
+
+        # Consider a 'non-keys' implementation of this
+        keys = self.redis.keys('*:{0}:*'.format(self.name))
+        for key in keys:
+            pipe.delete(key)
+
+        pipe.execute()
+
+
+    def key(self, include_kpi=True):
+        return _key("c:{0}".format(self.name))
+
+    @classmethod
+    def find(cls, config_name,
+        redis=None):
+
+        if not redis.sismember(_key("e"), experiment_name):
+            raise ValueError('experiment does not exist')
+
+        return cls(config_name,
+                   Config.load(config_name, redis),
+                   redis=redis)
+
+    @classmethod
+    def find_or_create(cls, config_name, value,
+        traffic_fraction=None,
+        redis=None):
+
+        is_update = False
+        try:
+            config = Config.find(config_name, redis=redis)
+            is_update = True
+        except ValueError:
+
+            if value is None or len(value) == 0:
+                raise ValueError('config needs a value')
+
+            config = cls(config_name, value, redis=redis)
+            config.save()
+
+        return config
+
+    @staticmethod
+    def all_names(redis=None):
+        return redis.smembers(_key('c'))
+
+    @staticmethod
+    def all(exclude_archived=True, exclude_paused=True, redis=None):
+        configs = []
+        keys = redis.smembers(_key('c'))
+
+        for key in keys:
+            c = Config.find(key, redis=redis)
+            configs.append(c)
+        return configs
+
+    @staticmethod
+    def load(config_name, redis=None):
+        key = _key("c:{0}".format(config_name))
+        return redis.lrange(key, 0, -1)
